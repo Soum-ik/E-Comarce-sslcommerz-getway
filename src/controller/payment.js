@@ -38,8 +38,8 @@ export const payment = async (req, res) => {
     sslcz.init(data).then((apiResponse) => {
       // Redirect the user to payment gateway
       let GatewayPageURL = apiResponse.GatewayPageURL;
-      res.redirect(GatewayPageURL);
       console.log("Redirecting to: ", GatewayPageURL);
+      res.json({ link: GatewayPageURL, status: "success" });
     });
     return res.json({ message: "Item created successfully" });
   } catch (error) {
