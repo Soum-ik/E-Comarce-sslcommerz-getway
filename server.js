@@ -1,11 +1,16 @@
 const cors = require("cors");
 const express = require("express");
-
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const SSLCommerzPayment = require("sslcommerz-lts");
+
+// sslcommerz credantital
+const store_id = `teams6623fcba51d0b`;
+const store_passwd = `  teams6623fcba51d0b@ssl`;
+const is_live = false;
 
 // database connector
 const MONGODB_CONNECTION =
-  "mongodb+srv://soum-ik:frontenddev@cluster0.dunrodk.mongodb.net/ecomarce?retryWrites=true&w=majority&appName=Cluster0";
+  "mongodb+srv://soum-ik:frontenddev@cluster0.dunrodk.mongodb.net/?retryWrites=true&w=majority";
 const client = new MongoClient(MONGODB_CONNECTION, {
   useNewUrlParser: true,
   serverApi: ServerApiVersion.v1,
@@ -18,45 +23,110 @@ app.use(express.json());
 
 async function run() {
   try {
-    client.connect();
-    // const productCollection = mongoose.connection.db.collection("product");
-    // const orderCollection = mongoose.connection.db.collection("order");
+    await client.connect();
+    console.log("database connected");
+    const productCollection = client.db("ecomarce").collection("product");
+    const orderCollection = client.db("ecomarce").collection("order");
 
-    app.get("/get", async (req, res) => {
-      const reqBody = await req.body;
-      console.log(reqBody, "req body");
-      res.send({ data: reqBody, status: "success" });
-      // const { id } = reqBody;
-      // const data = {
-      //   total_amount: 100,
-      //   currency: "BDT",
-      //   tran_id: "REF123", // use unique tran_id for each api call
-      //   success_url: "http://localhost:3030/success",
-      //   fail_url: "http://localhost:3030/fail",
-      //   cancel_url: "http://localhost:3030/cancel",
-      //   ipn_url: "http://localhost:3030/ipn",
-      //   shipping_method: "Courier",
-      //   product_name: "Computer.",
-      //   product_category: "Electronic",
-      //   product_profile: "general",
-      //   cus_name: "Customer Name",
-      //   cus_email: "customer@example.com",
-      //   cus_add1: "Dhaka",
-      //   cus_add2: "Dhaka",
-      //   cus_city: "Dhaka",
-      //   cus_state: "Dhaka",
-      //   cus_postcode: "1000",
-      //   cus_country: "Bangladesh",
-      //   cus_phone: "01711111111",
-      //   cus_fax: "01711111111",
-      //   ship_name: "Customer Name",
-      //   ship_add1: "Dhaka",
-      //   ship_add2: "Dhaka",
-      //   ship_city: "Dhaka",
-      //   ship_state: "Dhaka",
-      //   ship_postcode: 1000,
-      //   ship_country: "Bangladesh",
-      // };
+    app.get("/payment", async (req, res) => {
+      // get from the user request
+      const {
+        _productId,
+        email,
+        firstName,
+        lastName,
+        total,
+        postCode,
+        road,
+        city,
+        country,
+        customersId,
+        qnt,
+      } = await req.body;
+
+      console.log(req.body, "server req  body");
+
+      // trans_id
+      let trans_id = _productId.toString();
+
+      // get from the realtime database
+      const _product = await productCollection.findOne({
+        _id: new ObjectId(_productId),
+      });
+      const { price } = _product;
+      console.log(_product, "check product result");
+
+      const data = {
+        total_amount: price,
+        currency: "BDT",
+        tran_id: trans_id, // use unique tran_id for each api call
+        success_url: `http://localhost:3001/payment/success/${trans_id}`,
+        fail_url: `http://localhost:3001/payment/fail/${trans_id}`,
+        cancel_url: `http://localhost:3001/payment/cancel/${trans_id}`,
+        ipn_url: "http://localhost:3001/payment/ipn",
+        shipping_method: "Courier",
+        product_name: "Computer.",
+        product_category: "Electronic",
+        product_profile: "general",
+        cus_name: firstName,
+        cus_email: email,
+        cus_add1: road,
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: postCode,
+        cus_country: country,
+        cus_phone: "01711111111",
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
+        ship_postcode: 1000,
+        ship_country: "Bangladesh",
+      };
+
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+
+      try {
+        const apiResponse = await sslcz.init(data);
+        // Redirect the user to payment gateway
+        let GatewayPageURL = apiResponse.GatewayPageURL;
+        res.send({ status: "success", url: GatewayPageURL });
+        const finalOrder = {
+          _product,
+          paidStatus: false,
+          tranjection_id: trans_id,
+        };
+        const result = await orderCollection.insertOne(finalOrder);
+        console.log(result);
+      } catch (error) {
+        // Handle errors here
+        res
+          .status(500)
+          .send({ status: "error", message: "Internal server error" });
+      }
+    });
+
+    app.post("/payment/success/:trans_id", async (req, res) => {
+      const tran_id = req.params.trans_id;
+
+      // Update the order with the matched transaction ID
+      const updateProduct = await orderCollection.updateOne(
+        { tranjection_id: tran_id }, // Filter for the specific order
+        { $set: { paidStatus: true } } // Update to set paidStatus to true
+      );
+      if (updateProduct.modifiedCount > 0) {
+        res.redirect(`http://localhost:3000/payment/success`);
+      } else {
+        res.redirect(`http://localhost:3000/payment/fail`);
+      }
+      console.log(
+        req.params.trans_id,
+        updateProduct,
+        "this is from payment success"
+      );
     });
   } catch (error) {
     console.log(error, "error");
@@ -66,7 +136,7 @@ run().catch(console.dir);
 
 app.get("/", (req, res) => {
   console.log("Hello");
-  res.send({data: "hello"});
+  res.send({ data: "hello" });
 });
 
 app.listen(port, () => {
