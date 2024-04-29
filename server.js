@@ -9,7 +9,7 @@ const store_passwd = `  teams6623fcba51d0b@ssl`;
 const is_live = false;
 
 let apiUrl;
-if (false) {
+if (true) {
   apiUrl = process.env.PROURL;
 } else {
   apiUrl = process.env.DEVURL;
@@ -17,7 +17,7 @@ if (false) {
 console.log(apiUrl);
 
 let serUrl;
-if (false) {
+if (true) {
   apiUrl = process.env.PDURL;
 } else {
   apiUrl = process.env.SDURL;
