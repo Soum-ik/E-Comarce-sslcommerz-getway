@@ -27,9 +27,9 @@ async function run() {
     console.log("database connected");
     const productCollection = client.db("ecomarce").collection("product");
     const orderCollection = client.db("ecomarce").collection("order");
-
-    app.get("/payment", async (req, res) => {
+    app.post("/payment", async (req, res) => {
       // get from the user request
+      const reqBody = req.body;
       const {
         _productId,
         email,
@@ -42,19 +42,16 @@ async function run() {
         country,
         customersId,
         qnt,
-      } = await req.body;
-
-      console.log(req.body, "server req  body");
+      } = reqBody;
 
       // trans_id
-      let trans_id = _productId.toString();
+      let trans_id = new ObjectId().toString();
 
       // get from the realtime database
       const _product = await productCollection.findOne({
         _id: new ObjectId(_productId),
       });
       const { price } = _product;
-      console.log(_product, "check product result");
 
       const data = {
         total_amount: price,
@@ -93,14 +90,14 @@ async function run() {
         const apiResponse = await sslcz.init(data);
         // Redirect the user to payment gateway
         let GatewayPageURL = apiResponse.GatewayPageURL;
-        res.send({ status: "success", url: GatewayPageURL });
         const finalOrder = {
           _product,
           paidStatus: false,
           tranjection_id: trans_id,
+          extraInformation: reqBody,
         };
         const result = await orderCollection.insertOne(finalOrder);
-        console.log(result);
+        res.send({ status: "success", url: GatewayPageURL, result: result });
       } catch (error) {
         // Handle errors here
         res
@@ -111,22 +108,32 @@ async function run() {
 
     app.post("/payment/success/:trans_id", async (req, res) => {
       const tran_id = req.params.trans_id;
-
+      const url = ``;
       // Update the order with the matched transaction ID
       const updateProduct = await orderCollection.updateOne(
         { tranjection_id: tran_id }, // Filter for the specific order
         { $set: { paidStatus: true } } // Update to set paidStatus to true
       );
       if (updateProduct.modifiedCount > 0) {
-        res.redirect(`http://localhost:3000/payment/success`);
+        res.redirect(
+          `http://localhost:3000/payment/success?tran_id=${tran_id}`
+        );
       } else {
-        res.redirect(`http://localhost:3000/payment/fail`);
+        res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
       }
       console.log(
         req.params.trans_id,
         updateProduct,
         "this is from payment success"
       );
+    });
+
+    app.get("/oder-details/:id", async (req, res) => {
+      const id = req.params.id;
+      const findOrder = await orderCollection.findOne({
+        tranjection_id: trans_id,
+      });
+      res.json({ data: " success", data: findOrder });
     });
   } catch (error) {
     console.log(error, "error");
