@@ -2,11 +2,27 @@ const cors = require("cors");
 const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const SSLCommerzPayment = require("sslcommerz-lts");
-
+require("dotenv").config();
 // sslcommerz credantital
 const store_id = `teams6623fcba51d0b`;
 const store_passwd = `  teams6623fcba51d0b@ssl`;
 const is_live = false;
+
+let apiUrl;
+if (false) {
+  apiUrl = process.env.PROURL;
+} else {
+  apiUrl = process.env.DEVURL;
+}
+console.log(apiUrl);
+
+let serUrl;
+if (false) {
+  apiUrl = process.env.PDURL;
+} else {
+  apiUrl = process.env.SDURL;
+}
+console.log(serUrl);
 
 // database connector
 const MONGODB_CONNECTION =
@@ -57,10 +73,10 @@ async function run() {
         total_amount: price,
         currency: "BDT",
         tran_id: trans_id, // use unique tran_id for each api call
-        success_url: `http://localhost:3001/payment/success/${trans_id}`,
-        fail_url: `http://localhost:3001/payment/fail/${trans_id}`,
-        cancel_url: `http://localhost:3001/payment/cancel/${trans_id}`,
-        ipn_url: "http://localhost:3001/payment/ipn",
+        success_url: `${serUrl}/payment/success/${trans_id}`,
+        fail_url: `${serUrl}/payment/fail/${trans_id}`,
+        cancel_url: `${serUrl}/payment/cancel/${trans_id}`,
+        ipn_url: `${serUrl}/payment/ipn`,
         shipping_method: "Courier",
         product_name: "Computer.",
         product_category: "Electronic",
@@ -108,18 +124,15 @@ async function run() {
 
     app.post("/payment/success/:trans_id", async (req, res) => {
       const tran_id = req.params.trans_id;
-      const url = ``;
       // Update the order with the matched transaction ID
       const updateProduct = await orderCollection.updateOne(
         { tranjection_id: tran_id }, // Filter for the specific order
         { $set: { paidStatus: true } } // Update to set paidStatus to true
       );
       if (updateProduct.modifiedCount > 0) {
-        res.redirect(
-          `http://localhost:3000/payment/success?tran_id=${tran_id}`
-        );
+        res.redirect(`${apiUrl}/payment/success?tran_id=${tran_id}`);
       } else {
-        res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
+        res.redirect(`${apiUrl}/payment/fail?tran_id=${tran_id}`);
       }
       console.log(
         req.params.trans_id,
@@ -128,12 +141,31 @@ async function run() {
       );
     });
 
-    app.get("/oder-details/:id", async (req, res) => {
-      const id = req.params.id;
-      const findOrder = await orderCollection.findOne({
-        tranjection_id: trans_id,
-      });
-      res.json({ data: " success", data: findOrder });
+    app.post("/payment/fail/:trans_id", async (req, res) => {
+      const tran_id = req.params.trans_id;
+      // Update the order with the matched transaction ID
+      const updateProduct = await orderCollection.deleteOne(
+        { tranjection_id: tran_id } // Filter for the specific order
+      );
+      res.redirect(`${apiUrl}/payment/fail?tran_id=${tran_id}`);
+
+      console.log(
+        req.params.trans_id,
+        updateProduct,
+        "this is from payment success"
+      );
+    });
+
+    app.get("/order-details/:userId", async (req, res) => {
+      const userId = req.params.userId;
+      console.log(userId);
+      const findOrder = await orderCollection
+        .find({
+          "_product.userId": new ObjectId(userId),
+        })
+        .toArray();
+      console.log(findOrder, "find data");
+      res.json({ data: "success", order: findOrder });
     });
   } catch (error) {
     console.log(error, "error");
