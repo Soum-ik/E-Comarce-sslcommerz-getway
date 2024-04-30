@@ -8,13 +8,6 @@ const store_id = `teams6623fcba51d0b`;
 const store_passwd = `teams6623fcba51d0b@ssl`;
 const is_live = false;
 
-let apiUrl;
-apiUrl = process.env.PROURL;
-
-
-let serUrl;
-serUrl = process.env.PDURL;
-
  
 // database connector
 const MONGODB_CONNECTION =
@@ -65,10 +58,10 @@ async function run() {
         total_amount: price,
         currency: "BDT",
         tran_id: trans_id, // use unique tran_id for each api call
-        success_url: `${serUrl}/payment/success/${trans_id}`,
-        fail_url: `${serUrl}/payment/fail/${trans_id}`,
-        cancel_url: `${serUrl}/payment/cancel/${trans_id}`,
-        ipn_url: `${serUrl}/payment/ipn`,
+        success_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/success/${trans_id}`,
+        fail_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/fail/${trans_id}`,
+        cancel_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/cancel/${trans_id}`,
+        ipn_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/ipn`,
         shipping_method: "Courier",
         product_name: "Computer.",
         product_category: "Electronic",
@@ -116,21 +109,18 @@ async function run() {
 
     app.post("/payment/success/:trans_id", async (req, res) => {
       const tran_id = req.params.trans_id;
+      console.log(tran_id);
       // Update the order with the matched transaction ID
       const updateProduct = await orderCollection.updateOne(
         { tranjection_id: tran_id }, // Filter for the specific order
         { $set: { paidStatus: true } } // Update to set paidStatus to true
       );
       if (updateProduct.modifiedCount > 0) {
-        res.redirect(`${apiUrl}/payment/success?tran_id=${tran_id}`);
+        res.redirect(`http://localhost:3000/payment/success?tran_id=${tran_id}`);
       } else {
-        res.redirect(`${apiUrl}/payment/fail?tran_id=${tran_id}`);
+        res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
       }
-      console.log(
-        req.params.trans_id,
-        updateProduct,
-        "this is from payment success"
-      );
+       
     });
 
     app.post("/payment/fail/:trans_id", async (req, res) => {
@@ -139,7 +129,7 @@ async function run() {
       const updateProduct = await orderCollection.deleteOne(
         { tranjection_id: tran_id } // Filter for the specific order
       );
-      res.redirect(`${apiUrl}/payment/fail?tran_id=${tran_id}`);
+      res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
 
       console.log(
         req.params.trans_id,
