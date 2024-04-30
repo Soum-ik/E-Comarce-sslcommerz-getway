@@ -8,7 +8,6 @@ const store_id = `teams6623fcba51d0b`;
 const store_passwd = `teams6623fcba51d0b@ssl`;
 const is_live = false;
 
- 
 // database connector
 const MONGODB_CONNECTION =
   "mongodb+srv://soum-ik:frontenddev@cluster0.dunrodk.mongodb.net/?retryWrites=true&w=majority";
@@ -116,11 +115,14 @@ async function run() {
         { $set: { paidStatus: true } } // Update to set paidStatus to true
       );
       if (updateProduct.modifiedCount > 0) {
-        res.redirect(`http://localhost:3000/payment/success?tran_id=${tran_id}`);
+        res.redirect(
+          `https://e-comarce-next.vercel.app/payment/success?tran_id=${tran_id}`
+        );
       } else {
-        res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
+        res.redirect(
+          `https://e-comarce-next.vercel.app/payment/fail?tran_id=${tran_id}`
+        );
       }
-       
     });
 
     app.post("/payment/fail/:trans_id", async (req, res) => {
@@ -129,7 +131,9 @@ async function run() {
       const updateProduct = await orderCollection.deleteOne(
         { tranjection_id: tran_id } // Filter for the specific order
       );
-      res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
+      res.redirect(
+        `https://e-comarce-next.vercel.app/payment/fail?tran_id=${tran_id}`
+      );
 
       console.log(
         req.params.trans_id,
