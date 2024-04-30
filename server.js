@@ -5,7 +5,7 @@ const SSLCommerzPayment = require("sslcommerz-lts");
 require("dotenv").config();
 // sslcommerz credantital
 const store_id = `teams6623fcba51d0b`;
-const store_passwd = `  teams6623fcba51d0b@ssl`;
+const store_passwd = `teams6623fcba51d0b@ssl`;
 const is_live = false;
 
 let apiUrl;
@@ -18,9 +18,9 @@ console.log(apiUrl);
 
 let serUrl;
 if (true) {
-  apiUrl = process.env.PDURL;
+  serUrl = process.env.PDURL;
 } else {
-  apiUrl = process.env.SDURL;
+  serUrl = process.env.SDURL;
 }
 console.log(serUrl);
 
@@ -59,7 +59,7 @@ async function run() {
         customersId,
         qnt,
       } = reqBody;
-
+      console.log(reqBody, "reqbody json");
       // trans_id
       let trans_id = new ObjectId().toString();
 
