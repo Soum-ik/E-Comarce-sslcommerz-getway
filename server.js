@@ -9,21 +9,13 @@ const store_passwd = `teams6623fcba51d0b@ssl`;
 const is_live = false;
 
 let apiUrl;
-if (true) {
-  apiUrl = process.env.PROURL;
-} else {
-  apiUrl = process.env.DEVURL;
-}
-console.log(apiUrl);
+apiUrl = process.env.PROURL;
+
 
 let serUrl;
-if (true) {
-  serUrl = process.env.PDURL;
-} else {
-  serUrl = process.env.SDURL;
-}
-console.log(serUrl);
+serUrl = process.env.PDURL;
 
+ 
 // database connector
 const MONGODB_CONNECTION =
   "mongodb+srv://soum-ik:frontenddev@cluster0.dunrodk.mongodb.net/?retryWrites=true&w=majority";
