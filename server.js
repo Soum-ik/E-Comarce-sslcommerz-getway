@@ -1,85 +1,77 @@
+require("dotenv").config();
 const cors = require("cors");
 const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const SSLCommerzPayment = require("sslcommerz-lts");
-require("dotenv").config();
-// sslcommerz credantital
+
+// SSLCommerz credentials
 const store_id = `teams6623fcba51d0b`;
 const store_passwd = `teams6623fcba51d0b@ssl`;
 const is_live = false;
 
-// database connector
-const MONGODB_CONNECTION =
-  "mongodb+srv://soum-ik:frontenddev@cluster0.dunrodk.mongodb.net/?retryWrites=true&w=majority";
+// Database connection
+const MONGODB_CONNECTION = process.env.MONGODB_CONNECTION;
 const client = new MongoClient(MONGODB_CONNECTION, {
   useNewUrlParser: true,
+  useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
 
 const app = express();
 const port = 3001;
+
 app.use(cors());
 app.use(express.json());
 
 async function run() {
   try {
     await client.connect();
-    console.log("database connected");
+    console.log("Database connected");
+
     const productCollection = client.db("ecomarce").collection("product");
     const orderCollection = client.db("ecomarce").collection("order");
-    app.post("/payment", async (req, res) => {
-      // get from the user request
-      const reqBody = req.body;
-      const {
-        _productId,
-        email,
-        firstName,
-        lastName,
-        total,
-        postCode,
-        road,
-        city,
-        country,
-        customersId,
-        qnt,
-      } = reqBody;
-      console.log(reqBody, "reqbody json");
-      // trans_id
-      let trans_id = new ObjectId().toString();
 
-      // get from the realtime database
-      const _product = await productCollection.findOne({
-        _id: new ObjectId(_productId),
-      });
-      const { price } = _product;
+    app.post("/payment", async (req, res) => {
+      const {
+        _productId, email, firstName, lastName, total,
+        postCode, road, city, country, customersId, qnt
+      } = req.body;
+
+      const trans_id = new ObjectId().toString();
+      const _product = await productCollection.findOne({ _id: new ObjectId(_productId) });
+
+      if (!_product) {
+        return res.status(404).send({ status: "error", message: "Product not found" });
+      }
+
+      // console.log(_product);
+
+      const totalAmount = Number(_product.price * qnt);
+      console.log(totalAmount);
 
       const data = {
-        total_amount: price,
+        total_amount: totalAmount,
         currency: "BDT",
-        tran_id: trans_id, // use unique tran_id for each api call
-        success_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/success/${trans_id}`,
-        fail_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/fail/${trans_id}`,
-        cancel_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/cancel/${trans_id}`,
-        ipn_url: `https://e-comarce-sslcommerz-getway.onrender.com/payment/ipn`,
+        tran_id: trans_id,
+        success_url: `http://localhost:3000/payment/success/${trans_id}`,
+        fail_url: `http://localhost:3000/payment/fail/${trans_id}`,
+        cancel_url: `http://localhost:3000/payment/cancel/${trans_id}`,
+        ipn_url: `http://localhost:3000/payment/ipn`,
         shipping_method: "Courier",
-        product_name: "Computer.",
+        product_name: _product.name || "Computer",
         product_category: "Electronic",
         product_profile: "general",
-        cus_name: firstName,
+        cus_name: `${firstName} ${lastName}`,
         cus_email: email,
         cus_add1: road,
-        cus_add2: "Dhaka",
-        cus_city: "Dhaka",
-        cus_state: "Dhaka",
+        cus_city: city,
         cus_postcode: postCode,
         cus_country: country,
         cus_phone: "01711111111",
         cus_fax: "01711111111",
         ship_name: "Customer Name",
-        ship_add1: "Dhaka",
-        ship_add2: "Dhaka",
-        ship_city: "Dhaka",
-        ship_state: "Dhaka",
+        ship_add1: city,
+        ship_city: city,
         ship_postcode: 1000,
         ship_country: "Bangladesh",
       };
@@ -88,82 +80,53 @@ async function run() {
 
       try {
         const apiResponse = await sslcz.init(data);
-        // Redirect the user to payment gateway
-        let GatewayPageURL = apiResponse.GatewayPageURL;
+        console.log(apiResponse, 'api response');
+
         const finalOrder = {
           _product,
           paidStatus: false,
-          tranjection_id: trans_id,
-          extraInformation: reqBody,
+          transaction_id: trans_id,
+          extraInformation: req.body,
         };
+
         const result = await orderCollection.insertOne(finalOrder);
-        res.send({ status: "success", url: GatewayPageURL, result: result });
+        res.send({ status: "success", url: apiResponse.GatewayPageURL, result });
       } catch (error) {
-        // Handle errors here
-        res
-          .status(500)
-          .send({ status: "error", message: "Internal server error" });
+        res.status(500).send({ status: "error", message: "Internal server error" });
       }
     });
 
     app.post("/payment/success/:trans_id", async (req, res) => {
       const tran_id = req.params.trans_id;
-      console.log(tran_id);
-      // Update the order with the matched transaction ID
-      const updateProduct = await orderCollection.updateOne(
-        { tranjection_id: tran_id }, // Filter for the specific order
-        { $set: { paidStatus: true } } // Update to set paidStatus to true
+      const updateResult = await orderCollection.updateOne(
+        { transaction_id: tran_id },
+        { $set: { paidStatus: true } }
       );
-      if (updateProduct.modifiedCount > 0) {
-        res.redirect(
-          `https://e-comarce-next.vercel.app/payment/success?tran_id=${tran_id}`
-        );
+
+      if (updateResult.modifiedCount > 0) {
+        res.redirect(`http://localhost:3000/payment/success?tran_id=${tran_id}`);
       } else {
-        res.redirect(
-          `https://e-comarce-next.vercel.app/payment/fail?tran_id=${tran_id}`
-        );
+        res.redirect(`http://localhost:3000/payment/fail?tran_id=${tran_id}`);
       }
     });
 
     app.post("/payment/fail/:trans_id", async (req, res) => {
       const tran_id = req.params.trans_id;
-      // Update the order with the matched transaction ID
-      const updateProduct = await orderCollection.deleteOne(
-        { tranjection_id: tran_id } // Filter for the specific order
-      );
-      res.redirect(
-        `https://e-comarce-next.vercel.app/payment/fail?tran_id=${tran_id}`
-      );
-
-      console.log(
-        req.params.trans_id,
-        updateProduct,
-        "this is from payment success"
-      );
+      await orderCollection.deleteOne({ transaction_id: tran_id });
+      res.redirect(`https://e-comarce-next.vercel.app/payment/fail?tran_id=${tran_id}`);
     });
 
     app.get("/order-details/:userId", async (req, res) => {
       const userId = req.params.userId;
-      console.log(userId);
-      const findOrder = await orderCollection
-        .find({
-          "_product.userId": new ObjectId(userId),
-        })
-        .toArray();
-      console.log(findOrder, "find data");
+      const findOrder = await orderCollection.find({ "extraInformation.customersId": userId }).toArray();
       res.json({ data: "success", order: findOrder });
     });
   } catch (error) {
-    console.log(error, "error");
+    console.error("Error connecting to database:", error);
   }
 }
-run().catch(console.dir);
-
-app.get("/", (req, res) => {
-  console.log("Hello");
-  res.send({ data: "hello" });
-});
+run();
 
 app.listen(port, () => {
-  console.log("Listening to port:", port);
+  console.log(`Listening on port ${port}`);
 });
