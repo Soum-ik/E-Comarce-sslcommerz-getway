@@ -32,33 +32,34 @@ async function run() {
     const orderCollection = client.db("ecomarce").collection("order");
 
     app.post("/payment", async (req, res) => {
-      const {
-        _productId, email, firstName, lastName, total,
-        postCode, road, city, country, customersId, qnt
+      const { _cartItem,
+        email,
+        firstName,
+        lastName,
+        total_price,
+        postCode,
+        road,
+        city,
+        country,
+        customersId,
+        qnt,
       } = req.body;
 
+      console.log(_cartItem[0]);
       const trans_id = new ObjectId().toString();
-      const _product = await productCollection.findOne({ _id: new ObjectId(_productId) });
 
-      if (!_product) {
-        return res.status(404).send({ status: "error", message: "Product not found" });
-      }
 
-      // console.log(_product);
-
-      const totalAmount = Number(_product.price * qnt);
-      console.log(totalAmount);
 
       const data = {
-        total_amount: totalAmount,
+        total_amount: total_price,
         currency: "BDT",
         tran_id: trans_id,
-        success_url: `http://localhost:3000/payment/success/${trans_id}`,
-        fail_url: `http://localhost:3000/payment/fail/${trans_id}`,
-        cancel_url: `http://localhost:3000/payment/cancel/${trans_id}`,
-        ipn_url: `http://localhost:3000/payment/ipn`,
+        success_url: `http://localhost:3001/payment/success/${trans_id}`,
+        fail_url: `http://localhost:3001/payment/fail/${trans_id}`,
+        cancel_url: `http://localhost:3001/payment/cancel/${trans_id}`,
+        ipn_url: `http://localhost:3001/payment/ipn`,
         shipping_method: "Courier",
-        product_name: _product.name || "Computer",
+        product_name: 'something' || "Computer",
         product_category: "Electronic",
         product_profile: "general",
         cus_name: `${firstName} ${lastName}`,
@@ -76,23 +77,29 @@ async function run() {
         ship_country: "Bangladesh",
       };
 
+      console.log(data);
+
+
       const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
 
       try {
         const apiResponse = await sslcz.init(data);
-        console.log(apiResponse, 'api response');
+        console.log(apiResponse.GatewayPageURL, 'api response');
 
         const finalOrder = {
-          _product,
+          _cartItem,
           paidStatus: false,
           transaction_id: trans_id,
           extraInformation: req.body,
         };
-
         const result = await orderCollection.insertOne(finalOrder);
-        res.send({ status: "success", url: apiResponse.GatewayPageURL, result });
+
+        return res.send({ status: "success", url: apiResponse.GatewayPageURL, result: result });
+
       } catch (error) {
-        res.status(500).send({ status: "error", message: "Internal server error" });
+        console.log(error);
+        
+        return res.status(500).send({ status: "error", message: "Internal server error" });
       }
     });
 
